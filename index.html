@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Control de Stock - Bidones</title>
+<title>AguaBelgranense - Control de Stock</title>
 <link rel="manifest" href="manifest.json">
 <style>
   body { font-family: Arial, sans-serif; background-color: #f0f2f5; margin: 0; padding: 0; padding-bottom: 40px; color: #333; }
@@ -40,7 +40,7 @@
 </head>
 <body>
 <header>
-  🚰 Control de Stock
+  🚰 AguaBelgranense - Control de Stock
   <button id="btnSalir" onclick="logout()" class="btn-salir hidden">Salir</button>
 </header>
 <div id="connectionStatus" class="estado-conexion online">🌐 Conectado a internet</div>
@@ -53,8 +53,8 @@
     <label>Operario:</label>
     <select id="loginUser">
       <option value="">-- Elegir --</option>
-      <option value="Operario 1">Operario 1</option>
-      <option value="Operario 2">Operario 2</option>
+      <option value="Willy">Willy</option>
+      <option value="Fernando">Fernando</option>
     </select>
     <label>PIN (4 dígitos):</label>
     <input type="password" id="loginPin" inputmode="numeric" placeholder="••••" maxlength="4" style="text-align:center; font-size:1.5rem; letter-spacing:5px;">
@@ -154,9 +154,9 @@
 <script>
 // ==================== CONFIG ====================
 // ⚠️ Reemplazá esta URL por la de tu implementación de Apps Script (termina en /exec)
-const API_URL = "https://script.google.com/macros/s/AKfycbz0WPWQvVDqt6r1cxigU3dIMttwTSuZ02eBap7XHwSR_Kb2FvijZyksWGZTr7CoBOxm/exec";
+const API_URL = "https://script.google.com/macros/s/TU_ID_DE_IMPLEMENTACION/exec";
 
-const REPARTIDORES = ["Repartidor 1", "Repartidor 2", "Repartidor 3", "Repartidor Foráneo"];
+const REPARTIDORES = ["Coco", "Ignacio", "Fernando", "Daniel"];
 const PRODUCTOS = ["Bidón 20L", "Bidón 12L", "Sifón Soda"];
 const ESTADOS = ["Llenos", "Vacíos", "Verde", "En Máquina", "Rotos"];
 
