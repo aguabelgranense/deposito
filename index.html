@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control de Depósito - Bidones</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 0; padding-bottom: 40px; color: #1e293b; }
+        header { background-color: #1e40af; color: white; padding: 15px; text-align: center; font-size: 1.2rem; font-weight: bold; }
+        .btn-salir { background-color: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 0.8rem; cursor: pointer; float: right; margin-top: -3px; }
+        .container { max-width: 450px; margin: 15px auto; padding: 0 15px; box-sizing: border-box; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h2, h3 { margin-top: 0; color: #0f172a; text-align: center; font-size: 1.3rem; }
+        label { display: block; font-weight: bold; margin-bottom: 6px; font-size: 0.9rem; color: #475569; }
+        select, input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size: 1rem; background-color: #f8fafc; }
+        .grid-2 { display: grid; grid-template-cols: 1fr 1fr; gap: 10px; }
+        .tabs { display: grid; grid-template-cols: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        .tab-btn { background-color: #e2e8f0; border: none; padding: 10px; font-weight: bold; border-radius: 8px; cursor: pointer; color: #64748b; }
+        .tab-btn.active { background-color: #3b82f6; color: white; }
+        button.btn-guardar { width: 100%; background-color: #10b981; color: white; border: none; padding: 14px; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        button.btn-guardar:hover { background-color: #059669; }
+        .hidden { display: none; }
+        .seccion-producto { border-top: 2px solid #f1f5f9; padding-top: 10px; margin-top: 15px; }
+        .titulo-prod { background: #3b82f6; color: white; padding: 4px 10px; border-radius: 4px; font-size: 0.9rem; font-weight: bold; display: inline-block; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+    <header>
+        📦 Panel Depósito
+        <button id="btnSalir" onclick="logout()" class="btn-salir hidden">Salir</button>
+    </header>
+
+    <div class="container">
+
+        <!-- 1. PANTALLA DE LOGIN -->
+        <div id="loginScreen" class="card">
+            <h2>Ingreso de Operarios</h2>
+            <label>Seleccione su Nombre:</label>
+            <select id="loginUser">
+                <option value="">-- Seleccionar Operario --</option>
+                <option value="Operario 1">Operario 1</option>
+                <option value="Operario 2">Operario 2</option>
+            </select>
+
+            <button onclick="login()" class="btn-guardar" style="background-color: #3b82f6; margin-top: 10px;">Ingresar al Sistema</button>
+        </div>
+
+        <!-- 2. PANTALLA OPERATIVA PRINCIPAL -->
+        <div id="mainScreen" class="hidden">
+            
+            <!-- Pestañas para cambiar de módulo -->
+            <div class="tabs">
+                <button id="tabCamiones" onclick="switchTab('camiones')" class="tab-btn active">🚚 Movimiento Camión</button>
+                <button id="tabCierre" onclick="switchTab('cierre')" class="tab-btn">🏢 Cierre de Depósito</button>
+            </div>
+
+            <!-- MÓDULO A: MOVIMIENTO DE CAMIONES -->
+            <div id="moduloCamiones" class="card">
+                <h3>📝 Registro de Camión</h3>
+                
+                <label>Seleccione el Repartidor:</label>
+                <select id="camionRepartidor">
+                    <option value="">-- ¿A qué camión pertenece? --</option>
+                    <option value="Repartidor 1">Repartidor 1 (Diario)</option>
+                    <option value="Repartidor 2">Repartidor 2 (Diario)</option>
+                    <option value="Repartidor 3">Repartidor 3 (Diario)</option>
+                    <option value="Repartidor Foráneo">Repartidor Foráneo (Semanal)</option>
+                </select>
+
+                <label>Producto:</label>
+                <select id="camionProducto">
+                    <option value="20L">Bidón 20 Litros</option>
+                    <option value="12L">Bidón 12 Litros</option>
+                    <option value="Soda">Sifón de Soda</option>
+                </select>
+
+                <div class="grid-2">
+                    <div>
+                        <label>Llenos que Trae:</label>
+                        <input type="number" id="camionLlenos" placeholder="0" min="0">
+                    </div>
+                    <div>
+                        <label>Vacíos que Trae:</label>
+                        <input type="number" id="camionVacios" placeholder="0" min="0">
+                    </div>
+                </div>
+
+                <div class="grid-2">
+                    <div>
+                        <label>🟢 Verdes:</label>
+                        <input type="number" id="camionVerdes" placeholder="0" min="0">
+                    </div>
+                    <div>
+                        <label>🔴 Rotos:</label>
+                        <input type="number" id="camionRotos" placeholder="0" min="0">
+                    </div>
+                </div>
+
+                <button onclick="guardarMovimientoCamion()" class="btn-guardar">💾 Guardar Movimiento</button>
+            </div>
+
+            <!-- MÓDULO B: CIERRE DE DEPÓSITO -->
+            <div id="moduloCierre" class="card hidden">
+                <h3>🏢 Conteo Físico del Depósito</h3>
+                <p style="font-size: 0.85rem; color: #64748b; text-align: center; margin-top: -5px; margin-bottom: 20px;">Ingrese el stock exacto que "HAY" en los estantes en este momento.</p>
+                
+                <!-- PRODUCTO 20 Lts -->
+                <div class="seccion-producto">
+                    <div class="titulo-prod">Bidones 20 Litros</div>
+                    <div class="grid-2">
+                        <div><label>Llenos:</label><input type="number" id="cierre20_llenos" placeholder="0"></div>
+                        <div><label>Vacíos:</label><input type="number" id="cierre20_vacios" placeholder="0"></div>
+                    </div>
+                    <div class="grid-3" style="display: grid; grid-template-cols: 1fr 1fr 1fr; gap: 5px;">
+                        <div><label style="font-size:0.75rem;">🟢 Verdes:</label><input type="number" id="cierre20_verdes" placeholder="0"></div>
+                        <div><label style="font-size:0.75rem;">⚙️ En Máq:</label><input type="number" id="cierre20_maquina" placeholder="0"></div>
+                        <div><label style="font-size:0.75rem;">🔴 Rotos:</label><input type="number" id="cierre20_rotos" placeholder="0"></div>
+                    </div>
+                </div>
+
+                <!-- PRODUCTO 12 Lts -->
+                <div class="seccion-producto">
+                    <div class="titulo-prod">Bidones 12 Litros</div>
+                    <div class="grid-2">
+                        <div><label>Llenos:</label><input type="number" id="cierre12_llenos" placeholder="0"></div>
+                        <div><label>Vacíos:</label><input type="number" id="cierre12_vacios" placeholder="0"></div>
+                    </div>
+                    <div class="grid-3" style="display: grid; grid-template-cols: 1fr 1fr 1fr; gap: 5px;">
+                        <div><label style="font-size:0.75rem;">🟢 Verdes:</label><input type="number" id="cierre12_verdes" placeholder="0"></div>
+                        <div><label style="font-size:0.75rem;">⚙️ En Máq:</label><input type="number" id="cierre12_maquina" placeholder="0"></div>
+                        <div><label style="font-size:0.75rem;">🔴 Rotos:</label><input type="number" id="cierre12_rotos" placeholder="0"></div>
+                    </div>
+                </div>
+
+                <!-- PRODUCTO Soda -->
+                <div class="seccion-producto">
+                    <div class="titulo-prod">Sifones de Soda</div>
+                    <div class="grid-2">
+                        <div><label>Llenos:</label><input type="number" id="cierreSoda_llenos" placeholder="0"></div>
+                        <div><label>Vacíos:</label><input type="number" id="cierreSoda_vacios" placeholder="0"></div>
+                    </div>
+                    <div class="grid-3" style="display: grid; grid-template-cols: 1fr 1fr 1fr; gap: 5px;">
+                        <div><label style="font-size:0.75rem;">🟢 Verdes:</label><input type="number" id="cierreSoda_verdes" placeholder="0"></div>
+                        <div><label style="font-size:0.75rem;">⚙️ En Máq:</label><input type="number" id="cierreSoda_maquina" placeholder="0"></div>
+                        <div><label style="font-size:0.75rem;">🔴 Rotos:</label><input type="number" id="cierreSoda_rotos" placeholder="0"></div>
+                    </div>
+                </div>
+
+                <button onclick="guardarCierreDeposito()" class="btn-guardar" style="background-color: #10b981; margin-top: 20px;">🔒 Guardar Cierre Diario</button>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // PEGA TU ENLACE ENTRE LAS COMILLAS SI YA LO TENES
+        const WEB_APP_URL = "AQUÍ_VA_TU_ENLACE_LARGO_DE_GOOGLE"; 
+
+        let operarioActivo = "";
+
+        function login() {
+            const user = document.getElementById('loginUser').value;
+
+            if(!user) {
+                alert("Por favor, seleccione un operario de la lista.");
+                return;
+            }
+
+            operarioActivo = user;
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('btnSalir').classList.remove('hidden');
+            document.getElementById('mainScreen').classList.remove('hidden');
+        }
+
+        function logout() {
