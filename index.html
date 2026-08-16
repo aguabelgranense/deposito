@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control de Stock - Bidones</title>
+<link rel="manifest" href="manifest.json">
+<style>
+  body { font-family: Arial, sans-serif; background-color: #f0f2f5; margin: 0; padding: 0; padding-bottom: 40px; color: #333; }
+  header { background-color: #1d4ed8; color: white; padding: 15px; text-align: center; font-size: 1.2rem; font-weight: bold; position: relative; }
+  .btn-salir { background-color: #ef4444; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 0.8rem; cursor: pointer; float: right; }
+  .estado-conexion { text-align: center; font-size: 0.8rem; padding: 6px; font-weight: bold; color: white; }
+  .online { background-color: #22c55e; }
+  .offline { background-color: #ef4444; }
+  .container { max-width: 480px; margin: 15px auto; padding: 0 15px; }
+  .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 15px; }
+  h2, h3 { margin-top: 0; color: #1e293b; text-align: center; }
+  label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 0.9rem; color: #475569; }
+  select, input { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; font-size: 1rem; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  button.btn-principal { width: 100%; background-color: #2563eb; color: white; border: none; padding: 12px; border-radius: 6px; font-size: 1rem; font-weight: bold; cursor: pointer; }
+  button.btn-principal:hover { background-color: #1d4ed8; }
+  button.btn-guardar { background-color: #16a34a; }
+  button.btn-guardar:hover { background-color: #15803d; }
+  .hidden { display: none; }
+  .tabs { display: flex; overflow-x: auto; gap: 6px; margin-bottom: 15px; }
+  .tab-btn { flex: 0 0 auto; background: #e2e8f0; border: none; padding: 10px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; cursor: pointer; color: #334155; }
+  .tab-btn.active { background: #2563eb; color: white; }
+  .alerta-caja { background-color: #fef3c7; border: 1px solid #f59e0b; border-radius: 6px; padding: 10px; margin-bottom: 15px; }
+  .alerta-caja span { color: #b45309; font-weight: bold; font-size: 0.85rem; display: block; margin-bottom: 5px; }
+  .cola-offline { background-color: #ffedd5; border: 1px solid #f97316; border-radius: 6px; padding: 10px; margin-bottom: 15px; text-align: center; }
+  .cola-offline span { color: #ea580c; font-weight: bold; font-size: 0.85rem; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+  th, td { padding: 6px; border-bottom: 1px solid #e2e8f0; text-align: center; }
+  th { background: #f1f5f9; }
+  .dif-neg, .dif-pos { font-weight: bold; color: #dc2626; }
+  .dif-cero { color: #16a34a; }
+</style>
+</head>
+<body>
+<header>
+  🚰 Control de Stock
+  <button id="btnSalir" onclick="logout()" class="btn-salir hidden">Salir</button>
+</header>
+<div id="connectionStatus" class="estado-conexion online">🌐 Conectado a internet</div>
+
+<div class="container">
+
+  <!-- LOGIN -->
+  <div id="loginScreen" class="card">
+    <h2>Iniciar Sesión</h2>
+    <label>Operario:</label>
+    <select id="loginUser">
+      <option value="">-- Elegir --</option>
+      <option value="Operario 1">Operario 1</option>
+      <option value="Operario 2">Operario 2</option>
+    </select>
+    <label>PIN (4 dígitos):</label>
+    <input type="password" id="loginPin" inputmode="numeric" placeholder="••••" maxlength="4" style="text-align:center; font-size:1.5rem; letter-spacing:5px;">
+    <button onclick="login()" class="btn-principal">Ingresar</button>
+  </div>
+
+  <!-- APP PRINCIPAL -->
+  <div id="appScreen" class="hidden">
+    <div id="colaOfflineAlert" class="cola-offline hidden">
+      <span>🚨 <span id="colaCount">0</span> movimiento(s) guardado(s) en el celular esperando conexión</span>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" onclick="mostrarTab('salida')">🚚 Salida</button>
+      <button class="tab-btn" onclick="mostrarTab('retorno')">↩️ Retorno</button>
+      <button class="tab-btn" onclick="mostrarTab('interno')">🔄 Interno</button>
+      <button class="tab-btn" onclick="mostrarTab('conteo')">📋 Conteo</button>
+      <button class="tab-btn" onclick="mostrarTab('auditoria')">📊 Auditoría</button>
+    </div>
+
+    <!-- SALIDA A REPARTO -->
+    <div id="tab-salida" class="card">
+      <h3>Salida a Reparto</h3>
+      <label>Repartidor:</label>
+      <select id="salidaRepartidor"></select>
+      <label>Producto:</label>
+      <select id="salidaProducto"></select>
+      <label>Cantidad de Llenos que salen:</label>
+      <input type="number" id="salidaCantidad" min="0" placeholder="0">
+      <button onclick="guardarSalida()" class="btn-principal btn-guardar">💾 Guardar Salida</button>
+    </div>
+
+    <!-- RETORNO DE CAMIÓN -->
+    <div id="tab-retorno" class="card hidden">
+      <h3>Retorno de Camión</h3>
+      <label>Repartidor:</label>
+      <select id="retornoRepartidor"></select>
+      <label>Producto:</label>
+      <select id="retornoProducto"></select>
+      <div class="grid-2">
+        <div><label>Vacíos que trae:</label><input type="number" id="retVacios" min="0" placeholder="0"></div>
+        <div><label>Llenos sobrantes:</label><input type="number" id="retSobrantes" min="0" placeholder="0"></div>
+      </div>
+      <div class="alerta-caja">
+        <span>⚠️ Incidentes (opcional):</span>
+        <div class="grid-2">
+          <div><label style="font-weight:normal;font-size:0.75rem;">🟢 Verdes:</label><input type="number" id="retVerde" min="0" placeholder="0"></div>
+          <div><label style="font-weight:normal;font-size:0.75rem;">🔴 Rotos:</label><input type="number" id="retRotos" min="0" placeholder="0"></div>
+        </div>
+      </div>
+      <button onclick="guardarRetorno()" class="btn-principal btn-guardar">💾 Guardar Retorno</button>
+    </div>
+
+    <!-- MOVIMIENTO INTERNO -->
+    <div id="tab-interno" class="card hidden">
+      <h3>Movimiento Interno de Depósito</h3>
+      <label>Producto:</label>
+      <select id="intProducto"></select>
+      <div class="grid-2">
+        <div><label>Desde estado:</label><select id="intOrigen"></select></div>
+        <div><label>Hacia estado:</label><select id="intDestino"></select></div>
+      </div>
+      <label>Cantidad:</label>
+      <input type="number" id="intCantidad" min="0" placeholder="0">
+      <button onclick="guardarInterno()" class="btn-principal btn-guardar">💾 Guardar Movimiento</button>
+    </div>
+
+    <!-- CONTEO -->
+    <div id="tab-conteo" class="card hidden">
+      <h3>Conteo Físico ("Hay")</h3>
+      <label>Producto:</label>
+      <select id="conProducto"></select>
+      <label>Estado:</label>
+      <select id="conEstado"></select>
+      <label>Cantidad contada:</label>
+      <input type="number" id="conCantidad" min="0" placeholder="0">
+      <button onclick="guardarConteo()" class="btn-principal btn-guardar">💾 Guardar Conteo</button>
+    </div>
+
+    <!-- AUDITORÍA -->
+    <div id="tab-auditoria" class="card hidden">
+      <h3>Auditoría de Stock</h3>
+      <button onclick="cargarStock()" class="btn-principal" style="margin-bottom:15px;">🔄 Actualizar</button>
+      <table>
+        <thead><tr><th>Producto</th><th>Estado</th><th>Debería</th><th>Hay</th><th>Dif.</th></tr></thead>
+        <tbody id="tablaStock"></tbody>
+      </table>
+      <h3 style="margin-top:20px;">Stock en Camiones</h3>
+      <table>
+        <thead><tr><th>Repartidor</th><th>Producto</th><th>Llenos</th></tr></thead>
+        <tbody id="tablaCamiones"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==================== CONFIG ====================
+// ⚠️ Reemplazá esta URL por la de tu implementación de Apps Script (termina en /exec)
+const API_URL = "https://script.google.com/macros/s/AKfycbz0WPWQvVDqt6r1cxigU3dIMttwTSuZ02eBap7XHwSR_Kb2FvijZyksWGZTr7CoBOxm/exec";
+
+const REPARTIDORES = ["Repartidor 1", "Repartidor 2", "Repartidor 3", "Repartidor Foráneo"];
+const PRODUCTOS = ["Bidón 20L", "Bidón 12L", "Sifón Soda"];
+const ESTADOS = ["Llenos", "Vacíos", "Verde", "En Máquina", "Rotos"];
+
+let currentUser = "";
+const QUEUE_KEY = "cola_offline_movimientos";
+
+// ==================== INIT ====================
+window.addEventListener("load", () => {
+  llenarSelects();
+  actualizarEstadoConexion();
+  actualizarContadorCola();
+  window.addEventListener("online", () => { actualizarEstadoConexion(); sincronizarCola(); });
+  window.addEventListener("offline", actualizarEstadoConexion);
+});
+
+function llenarSelects() {
+  const setOpts = (id, arr) => {
+    const el = document.getElementById(id);
+    el.innerHTML = arr.map(v => `<option value="${v}">${v}</option>`).join("");
+  };
+  ["salidaRepartidor", "retornoRepartidor"].forEach(id => setOpts(id, REPARTIDORES));
+  ["salidaProducto", "retornoProducto", "intProducto", "conProducto"].forEach(id => setOpts(id, PRODUCTOS));
+  ["intOrigen", "intDestino", "conEstado"].forEach(id => setOpts(id, ESTADOS));
+}
+
+// ==================== LOGIN ====================
+function login() {
+  const usuario = document.getElementById("loginUser").value;
+  const pin = document.getElementById("loginPin").value;
+  if (!usuario || pin.length < 4) { alert("Elegí un operario e ingresá el PIN completo."); return; }
+
+  // El login necesita conexión la primera vez del día; si no hay señal,
+  // se permite entrar igual y se valida en el primer sync.
+  if (!navigator.onLine) {
+    currentUser = usuario;
+    entrarApp();
+    return;
+  }
+
+  postApi({ accion: "login", usuario, pin }).then(r => {
+    if (r && r.ok) { currentUser = usuario; entrarApp(); }
+    else { alert("Usuario o PIN incorrecto."); }
+  }).catch(() => { currentUser = usuario; entrarApp(); });
+}
+
+function entrarApp() {
+  document.getElementById("loginScreen").classList.add("hidden");
+  document.getElementById("appScreen").classList.remove("hidden");
+  document.getElementById("btnSalir").classList.remove("hidden");
+  cargarStock();
+}
+
+function logout() {
+  currentUser = "";
+  document.getElementById("loginScreen").classList.remove("hidden");
+  document.getElementById("appScreen").classList.add("hidden");
+  document.getElementById("btnSalir").classList.add("hidden");
+  document.getElementById("loginPin").value = "";
+}
+
+// ==================== TABS ====================
+function mostrarTab(nombre) {
+  ["salida", "retorno", "interno", "conteo", "auditoria"].forEach(t => {
+    document.getElementById("tab-" + t).classList.toggle("hidden", t !== nombre);
+  });
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+  event.target.classList.add("active");
+  if (nombre === "auditoria") cargarStock();
+}
+
+// ==================== GUARDAR MOVIMIENTOS ====================
+function guardarSalida() {
+  const cant = Number(document.getElementById("salidaCantidad").value) || 0;
+  if (cant <= 0) { alert("Ingresá una cantidad mayor a 0."); return; }
+  const mov = {
+    accion: "salidaReparto",
+    usuario: currentUser,
+    producto: document.getElementById("salidaProducto").value,
+    repartidor: document.getElementById("salidaRepartidor").value,
+    cantLlenos: cant,
+    timestamp: new Date().toISOString()
+  };
+  enviarMovimiento(mov);
+  document.getElementById("salidaCantidad").value = "";
+}
+
+function guardarRetorno() {
+  const vacios = Number(document.getElementById("retVacios").value) || 0;
+  const verde = Number(document.getElementById("retVerde").value) || 0;
+  const rotos = Number(document.getElementById("retRotos").value) || 0;
+  const sobrantes = Number(document.getElementById("retSobrantes").value) || 0;
+  if (vacios === 0 && verde === 0 && rotos === 0 && sobrantes === 0) {
+    alert("Ingresá al menos una cantidad."); return;
+  }
+  const mov = {
+    accion: "retornoCamion",
+    usuario: currentUser,
+    producto: document.getElementById("retornoProducto").value,
+    repartidor: document.getElementById("retornoRepartidor").value,
+    vacios, verde, rotos, llenosSobrantes: sobrantes,
+    timestamp: new Date().toISOString()
+  };
+  enviarMovimiento(mov);
+  ["retVacios", "retVerde", "retRotos", "retSobrantes"].forEach(id => document.getElementById(id).value = "");
+}
+
+function guardarInterno() {
+  const cant = Number(document.getElementById("intCantidad").value) || 0;
+  const origen = document.getElementById("intOrigen").value;
+  const destino = document.getElementById("intDestino").value;
+  if (cant <= 0) { alert("Ingresá una cantidad mayor a 0."); return; }
+  if (origen === destino) { alert("El estado de origen y destino no pueden ser iguales."); return; }
+  const mov = {
+    accion: "movimientoInterno",
+    usuario: currentUser,
+    producto: document.getElementById("intProducto").value,
+    estadoOrigen: origen, estadoDestino: destino, cantidad: cant,
+    timestamp: new Date().toISOString()
+  };
+  enviarMovimiento(mov);
+  document.getElementById("intCantidad").value = "";
+}
+
+function guardarConteo() {
+  const cant = document.getElementById("conCantidad").value;
+  if (cant === "") { alert("Ingresá la cantidad contada."); return; }
+  const mov = {
+    accion: "conteo",
+    usuario: currentUser,
+    producto: document.getElementById("conProducto").value,
+    estado: document.getElementById("conEstado").value,
+    cantidadContada: Number(cant),
+    timestamp: new Date().toISOString()
+  };
+  enviarMovimiento(mov);
+  document.getElementById("conCantidad").value = "";
+}
+
+// ==================== OFFLINE / SYNC ====================
+function enviarMovimiento(mov) {
+  if (navigator.onLine) {
+    postApi(mov).then(r => {
+      if (r && r.ok) { alert("✅ Guardado y sincronizado."); cargarStock(); }
+      else { guardarEnCola(mov); alert("⚠️ No se pudo confirmar, se guardó localmente para reintentar."); }
+    }).catch(() => { guardarEnCola(mov); alert("⚠️ Sin respuesta del servidor, se guardó localmente."); });
+  } else {
+    guardarEnCola(mov);
+    alert("📴 Sin conexión: guardado en el celular, se sincroniza solo al volver la señal.");
+  }
+}
+
+function guardarEnCola(mov) {
+  const cola = JSON.parse(localStorage.getItem(QUEUE_KEY) || "[]");
+  cola.push(mov);
+  localStorage.setItem(QUEUE_KEY, JSON.stringify(cola));
+  actualizarContadorCola();
+}
+
+function actualizarContadorCola() {
+  const cola = JSON.parse(localStorage.getItem(QUEUE_KEY) || "[]");
+  const alertaEl = document.getElementById("colaOfflineAlert");
+  const countEl = document.getElementById("colaCount");
+  if (cola.length > 0) {
+    alertaEl.classList.remove("hidden");
+    countEl.textContent = cola.length;
+  } else {
+    alertaEl.classList.add("hidden");
+  }
+}
+
+function sincronizarCola() {
+  const cola = JSON.parse(localStorage.getItem(QUEUE_KEY) || "[]");
+  if (cola.length === 0) return;
+  postApi({ accion: "syncLote", movimientos: cola }).then(r => {
+    if (r && r.ok) {
+      localStorage.removeItem(QUEUE_KEY);
+      actualizarContadorCola();
+      cargarStock();
+    }
+  }).catch(() => { /* se reintentará en el próximo evento online */ });
+}
+
+function actualizarEstadoConexion() {
+  const el = document.getElementById("connectionStatus");
+  if (navigator.onLine) {
+    el.textContent = "🌐 Conectado a internet";
+    el.className = "estado-conexion online";
+  } else {
+    el.textContent = "📴 Sin conexión (modo offline)";
+    el.className = "estado-conexion offline";
+  }
+}
+
+// ==================== API ====================
+function postApi(data) {
+  return fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" }, // evita preflight CORS
+    body: JSON.stringify(data)
+  }).then(r => r.json());
+}
+
+function getApi(accion) {
+  return fetch(API_URL + "?accion=" + accion).then(r => r.json());
+}
+
+// ==================== AUDITORÍA ====================
+function cargarStock() {
+  if (!navigator.onLine) return;
+  getApi("getStock").then(r => {
+    if (!r || !r.ok) return;
+    const tStock = document.getElementById("tablaStock");
+    tStock.innerHTML = r.stock.map(s => {
+      const dif = Number(s.diferencia) || 0;
+      const clase = dif === 0 ? "dif-cero" : (dif < 0 ? "dif-neg" : "dif-pos");
+      return `<tr><td>${s.producto}</td><td>${s.estado}</td><td>${s.deberia}</td><td>${s.hay}</td><td class="${clase}">${dif > 0 ? "+" : ""}${dif}</td></tr>`;
+    }).join("");
+
+    const tCam = document.getElementById("tablaCamiones");
+    tCam.innerHTML = r.camiones.map(c =>
+      `<tr><td>${c.repartidor}</td><td>${c.producto}</td><td>${c.stockLlenos}</td></tr>`
+    ).join("");
+  }).catch(() => {});
+}
+</script>
+</body>
+</html>
