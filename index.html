@@ -160,6 +160,14 @@ const API_URL = "https://script.google.com/macros/s/AKfycbz0WPWQvVDqt6r1cxigU3dI
 const REPARTIDORES = ["Coco", "Ignacio", "Fernando", "Daniel"];
 const PRODUCTOS = ["Bidón 20L", "Bidón 12L", "Cajón", "Sifón"];
 const ESTADOS = ["Llenos", "Vacíos", "Verde", "En Máquina", "Rotos"];
+// "En Máquina" es el paso de llenado de agua fría/caliente: solo aplica a
+// los bidones, no a la soda (Cajón/Sifón no pasan por esa máquina).
+const ESTADOS_POR_PRODUCTO = {
+  "Bidón 20L": ESTADOS,
+  "Bidón 12L": ESTADOS,
+  "Cajón": ESTADOS.filter(e => e !== "En Máquina"),
+  "Sifón": ESTADOS.filter(e => e !== "En Máquina")
+};
 
 let currentUser = "";
 const QUEUE_KEY = "cola_offline_movimientos";
@@ -186,7 +194,21 @@ function llenarSelects() {
   };
   ["salidaRepartidor", "retornoRepartidor"].forEach(id => setOpts(id, REPARTIDORES));
   ["salidaProducto", "retornoProducto", "intProducto", "conProducto"].forEach(id => setOpts(id, PRODUCTOS));
-  ["intOrigen", "intDestino", "conEstado"].forEach(id => setOpts(id, ESTADOS));
+
+  // Los desplegables de Estado dependen del producto elegido (Cajón/Sifón
+  // no tienen "En Máquina"). Se actualizan al cargar y cada vez que cambia
+  // el producto correspondiente.
+  const actualizarEstados = (productoId, estadoIds) => {
+    const producto = document.getElementById(productoId).value;
+    const estados = ESTADOS_POR_PRODUCTO[producto] || ESTADOS;
+    estadoIds.forEach(id => setOpts(id, estados));
+  };
+
+  document.getElementById("intProducto").addEventListener("change", () => actualizarEstados("intProducto", ["intOrigen", "intDestino"]));
+  document.getElementById("conProducto").addEventListener("change", () => actualizarEstados("conProducto", ["conEstado"]));
+
+  actualizarEstados("intProducto", ["intOrigen", "intDestino"]);
+  actualizarEstados("conProducto", ["conEstado"]);
 }
 
 // ==================== LOGIN ====================
