@@ -1,6 +1,6 @@
 {
-  "name": "Control de Stock - Bidones",
-  "short_name": "Stock Bidones",
+  "name": "AguaBelgranense - Control de Stock",
+  "short_name": "AguaBelgranense",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#f0f2f5",
