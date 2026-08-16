@@ -53,9 +53,8 @@
     <label>Operario:</label>
     <select id="loginUser">
       <option value="">-- Elegir --</option>
-      <option value="Ana">Ana</option>
-      <option value="Belen">Belen</option>
-      <option value="Tito">Tito</option>
+      <option value="Willy">Willy</option>
+      <option value="Fernando">Fernando</option>
     </select>
     <label>PIN (4 dígitos):</label>
     <input type="password" id="loginPin" inputmode="numeric" placeholder="••••" maxlength="4" style="text-align:center; font-size:1.5rem; letter-spacing:5px;">
@@ -174,6 +173,15 @@ const QUEUE_KEY = "cola_offline_movimientos";
 
 // ==================== INIT ====================
 window.addEventListener("load", () => {
+  // Registra el Service Worker: guarda una copia de la app para poder
+  // abrirla aunque el celular esté sin señal desde el arranque.
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("./sw.js").catch(() => {
+      // Si falla el registro (ej: navegador viejo), la app sigue andando
+      // igual, solo que no vamos a poder abrirla en frío sin conexión.
+    });
+  }
+
   llenarSelects();
   actualizarEstadoConexion();
   actualizarContadorCola();
