@@ -168,8 +168,14 @@ window.addEventListener("load", () => {
   llenarSelects();
   actualizarEstadoConexion();
   actualizarContadorCola();
+  // Si la app se abre ya con conexión y quedaron movimientos pendientes
+  // de una sesión offline anterior, los sincroniza apenas carga.
+  if (navigator.onLine) sincronizarCola();
   window.addEventListener("online", () => { actualizarEstadoConexion(); sincronizarCola(); });
   window.addEventListener("offline", actualizarEstadoConexion);
+  // Reintento periódico: si queda algo pendiente y hay señal, reintenta
+  // sincronizar cada 30 segundos (útil con señal intermitente en la calle).
+  setInterval(() => { if (navigator.onLine) sincronizarCola(); }, 30000);
 });
 
 function llenarSelects() {
