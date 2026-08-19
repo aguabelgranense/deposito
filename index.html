@@ -71,8 +71,10 @@
     <div class="tabs">
       <button class="tab-btn active" onclick="mostrarTab('salida')">🚚 Salida</button>
       <button class="tab-btn" onclick="mostrarTab('retorno')">↩️ Retorno</button>
+      <button class="tab-btn" onclick="mostrarTab('descarte')">🗑️ Descarte</button>
       <button class="tab-btn" onclick="mostrarTab('interno')">🔄 Interno</button>
       <button class="tab-btn" onclick="mostrarTab('conteo')">📋 Conteo</button>
+      <button class="tab-btn" onclick="mostrarTab('correccion')">✏️ Corregir</button>
       <button class="tab-btn" onclick="mostrarTab('auditoria')">📊 Auditoría</button>
     </div>
 
@@ -96,7 +98,7 @@
       <label>Producto:</label>
       <select id="retornoProducto"></select>
       <div class="grid-2">
-        <div><label>Vacíos que trae:</label><input type="number" id="retVacios" min="0" placeholder="0"></div>
+        <div><label>Vacíos que trae (van a "Para Lavar"):</label><input type="number" id="retVacios" min="0" placeholder="0"></div>
         <div><label>Llenos sobrantes:</label><input type="number" id="retSobrantes" min="0" placeholder="0"></div>
       </div>
       <div class="alerta-caja">
@@ -107,6 +109,19 @@
         </div>
       </div>
       <button onclick="guardarRetorno()" class="btn-principal btn-guardar">💾 Guardar Retorno</button>
+    </div>
+
+    <!-- DESCARTE -->
+    <div id="tab-descarte" class="card hidden">
+      <h3>Salida - Descarte</h3>
+      <div class="alerta-caja">
+        <span>⚠️ Solo para Rotos ya probados y confirmados en el depósito. Salen del sistema para siempre — no vuelven a contarse en ningún estado.</span>
+      </div>
+      <label>Producto:</label>
+      <select id="descProducto"></select>
+      <label>Cantidad de Rotos a descartar:</label>
+      <input type="number" id="descCantidad" min="0" placeholder="0">
+      <button onclick="guardarDescarte()" class="btn-principal btn-guardar">💾 Guardar Descarte</button>
     </div>
 
     <!-- MOVIMIENTO INTERNO -->
@@ -135,6 +150,36 @@
       <button onclick="guardarConteo()" class="btn-principal btn-guardar">💾 Guardar Conteo</button>
     </div>
 
+    <!-- CORRECCIÓN -->
+    <div id="tab-correccion" class="card hidden">
+      <h3>Corregir un Error de Carga</h3>
+      <div class="alerta-caja">
+        <span>⚠️ Esto NO borra el movimiento anterior — suma un ajuste nuevo, con motivo, para que quede todo explicado en el historial.</span>
+      </div>
+      <label>Producto:</label>
+      <select id="corProducto"></select>
+      <label>Estado (en el Depósito):</label>
+      <select id="corEstado"></select>
+      <label>¿Cuánto hay que ajustar en el Depósito?</label>
+      <input type="number" id="corCantidad" placeholder="Ej: 5 para sumar, -5 para restar">
+
+      <label style="display:flex; align-items:center; gap:8px; font-weight:normal; margin-bottom:10px;">
+        <input type="checkbox" id="corAfectaCamion" style="width:auto; margin:0;" onchange="document.getElementById('corCamionBox').classList.toggle('hidden', !this.checked)">
+        Este error también afecta el stock de un camión (ej: error de Salida o Retorno)
+      </label>
+
+      <div id="corCamionBox" class="alerta-caja hidden">
+        <label>Repartidor:</label>
+        <select id="corRepartidor"></select>
+        <label>¿Cuánto hay que ajustar en el camión de ese repartidor?</label>
+        <input type="number" id="corCantidadCamion" placeholder="Ej: 1 para sumar, -1 para restar">
+      </div>
+
+      <label>Motivo (obligatorio):</label>
+      <input type="text" id="corMotivo" placeholder="Ej: cargué 9 en vez de 10 en la Salida de las 10am">
+      <button onclick="guardarCorreccion()" class="btn-principal btn-guardar">💾 Guardar Corrección</button>
+    </div>
+
     <!-- AUDITORÍA -->
     <div id="tab-auditoria" class="card hidden">
       <h3>Auditoría de Stock</h3>
@@ -158,16 +203,27 @@
 const API_URL = "https://script.google.com/macros/s/AKfycbz0WPWQvVDqt6r1cxigU3dIMttwTSuZ02eBap7XHwSR_Kb2FvijZyksWGZTr7CoBOxm/exec";
 
 const REPARTIDORES = ["Coco", "Ignacio", "Fernando", "Daniel"];
-const PRODUCTOS = ["Bidón 20L", "Bidón 12L", "Cajón", "Sifón"];
-const ESTADOS = ["Llenos", "Vacíos", "Verde", "En Máquina", "Rotos"];
-// "En Máquina" es el paso de llenado de agua fría/caliente: solo aplica a
-// los bidones, no a la soda (Cajón/Sifón no pasan por esa máquina).
-const ESTADOS_POR_PRODUCTO = {
-  "Bidón 20L": ESTADOS,
-  "Bidón 12L": ESTADOS,
-  "Cajón": ESTADOS.filter(e => e !== "En Máquina"),
-  "Sifón": ESTADOS.filter(e => e !== "En Máquina")
-};
+
+const PRODUCTOS_BIDON = ["Bidón 20L", "Bidón 12L", "Bidón 20L - Anahí", "Bidón 12L - Anahí"];
+const PRODUCTOS_SIFON = ["Sifón 1.25L", "Sifón 1.5L"];
+const PRODUCTOS_CAJON = ["Cajón"];
+const PRODUCTOS = [...PRODUCTOS_BIDON, ...PRODUCTOS_CAJON, ...PRODUCTOS_SIFON];
+// El Cajón no circula por Salida/Retorno (solo se cuenta en Conteo Físico).
+const PRODUCTOS_CAMION = [...PRODUCTOS_BIDON, ...PRODUCTOS_SIFON];
+// Productos con estado "Rotos" que se pueden mandar a Descarte.
+const PRODUCTOS_DESCARTABLES = PRODUCTOS_CAMION;
+
+const ESTADOS_BIDON = ["Llenos", "Vacío - Para Lavar", "Vacío - Para Llenar", "Verde", "En Máquina", "Rotos"];
+const ESTADOS_SIFON = ["Llenos", "Vacíos", "Rotos"];
+const ESTADOS_CAJON = ["Esqueleto", "Completo - Lleno", "Completo - Vacío"];
+
+const ESTADOS_POR_PRODUCTO = {};
+PRODUCTOS_BIDON.forEach(p => ESTADOS_POR_PRODUCTO[p] = ESTADOS_BIDON);
+PRODUCTOS_SIFON.forEach(p => ESTADOS_POR_PRODUCTO[p] = ESTADOS_SIFON);
+PRODUCTOS_CAJON.forEach(p => ESTADOS_POR_PRODUCTO[p] = ESTADOS_CAJON);
+// Todos los estados que existen en algún producto (para el selector de
+// Corrección, que permite elegir cualquier producto).
+const ESTADOS = [...new Set([...ESTADOS_BIDON, ...ESTADOS_SIFON, ...ESTADOS_CAJON])];
 
 let currentUser = "";
 const QUEUE_KEY = "cola_offline_movimientos";
@@ -201,12 +257,17 @@ function llenarSelects() {
     const el = document.getElementById(id);
     el.innerHTML = arr.map(v => `<option value="${v}">${v}</option>`).join("");
   };
-  ["salidaRepartidor", "retornoRepartidor"].forEach(id => setOpts(id, REPARTIDORES));
-  ["salidaProducto", "retornoProducto", "intProducto", "conProducto"].forEach(id => setOpts(id, PRODUCTOS));
+  ["salidaRepartidor", "retornoRepartidor", "corRepartidor"].forEach(id => setOpts(id, REPARTIDORES));
+  // Salida y Retorno solo manejan lo que circula en camión (sin Cajón).
+  ["salidaProducto", "retornoProducto"].forEach(id => setOpts(id, PRODUCTOS_CAMION));
+  // Interno, Conteo y Corrección pueden tocar cualquier producto (incluido Cajón).
+  ["intProducto", "conProducto", "corProducto"].forEach(id => setOpts(id, PRODUCTOS));
+  // Descarte: solo productos con estado "Rotos" (todo lo que va en camión).
+  setOpts("descProducto", PRODUCTOS_DESCARTABLES);
 
-  // Los desplegables de Estado dependen del producto elegido (Cajón/Sifón
-  // no tienen "En Máquina"). Se actualizan al cargar y cada vez que cambia
-  // el producto correspondiente.
+  // Los desplegables de Estado dependen del producto elegido (cada
+  // categoría de producto tiene su propio set de estados). Se actualizan
+  // al cargar y cada vez que cambia el producto correspondiente.
   const actualizarEstados = (productoId, estadoIds) => {
     const producto = document.getElementById(productoId).value;
     const estados = ESTADOS_POR_PRODUCTO[producto] || ESTADOS;
@@ -215,9 +276,11 @@ function llenarSelects() {
 
   document.getElementById("intProducto").addEventListener("change", () => actualizarEstados("intProducto", ["intOrigen", "intDestino"]));
   document.getElementById("conProducto").addEventListener("change", () => actualizarEstados("conProducto", ["conEstado"]));
+  document.getElementById("corProducto").addEventListener("change", () => actualizarEstados("corProducto", ["corEstado"]));
 
   actualizarEstados("intProducto", ["intOrigen", "intDestino"]);
   actualizarEstados("conProducto", ["conEstado"]);
+  actualizarEstados("corProducto", ["corEstado"]);
 }
 
 // ==================== LOGIN ====================
@@ -257,7 +320,7 @@ function logout() {
 
 // ==================== TABS ====================
 function mostrarTab(nombre) {
-  ["salida", "retorno", "interno", "conteo", "auditoria"].forEach(t => {
+  ["salida", "retorno", "descarte", "interno", "conteo", "correccion", "auditoria"].forEach(t => {
     document.getElementById("tab-" + t).classList.toggle("hidden", t !== nombre);
   });
   document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
@@ -301,6 +364,20 @@ function guardarRetorno() {
   ["retVacios", "retVerde", "retRotos", "retSobrantes"].forEach(id => document.getElementById(id).value = "");
 }
 
+function guardarDescarte() {
+  const cant = Number(document.getElementById("descCantidad").value) || 0;
+  if (cant <= 0) { alert("Ingresá una cantidad mayor a 0."); return; }
+  const mov = {
+    accion: "salidaDescarte",
+    usuario: currentUser,
+    producto: document.getElementById("descProducto").value,
+    cantidad: cant,
+    timestamp: new Date().toISOString()
+  };
+  enviarMovimiento(mov);
+  document.getElementById("descCantidad").value = "";
+}
+
 function guardarInterno() {
   const cant = Number(document.getElementById("intCantidad").value) || 0;
   const origen = document.getElementById("intOrigen").value;
@@ -331,6 +408,41 @@ function guardarConteo() {
   };
   enviarMovimiento(mov);
   document.getElementById("conCantidad").value = "";
+}
+
+function guardarCorreccion() {
+  const cant = document.getElementById("corCantidad").value;
+  const motivo = document.getElementById("corMotivo").value.trim();
+  const afectaCamion = document.getElementById("corAfectaCamion").checked;
+
+  if (cant === "" || Number(cant) === 0) { alert("Ingresá cuánto hay que sumar o restar en el Depósito (no puede ser 0)."); return; }
+  if (motivo === "") { alert("El motivo es obligatorio: explicá brevemente qué error estás corrigiendo."); return; }
+
+  const mov = {
+    accion: "correccion",
+    usuario: currentUser,
+    producto: document.getElementById("corProducto").value,
+    estado: document.getElementById("corEstado").value,
+    cantidad: Number(cant),
+    motivo: motivo,
+    timestamp: new Date().toISOString()
+  };
+
+  if (afectaCamion) {
+    const cantCamion = document.getElementById("corCantidadCamion").value;
+    if (cantCamion === "" || Number(cantCamion) === 0) {
+      alert("Marcaste que afecta a un camión: ingresá cuánto ajustar ahí también (no puede ser 0)."); return;
+    }
+    mov.repartidor = document.getElementById("corRepartidor").value;
+    mov.cantidadCamion = Number(cantCamion);
+  }
+
+  enviarMovimiento(mov);
+  document.getElementById("corCantidad").value = "";
+  document.getElementById("corMotivo").value = "";
+  document.getElementById("corCantidadCamion").value = "";
+  document.getElementById("corAfectaCamion").checked = false;
+  document.getElementById("corCamionBox").classList.add("hidden");
 }
 
 // ==================== OFFLINE / SYNC ====================
