@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AguaBelgranense - Control de Stock</title>
 <link rel="manifest" href="manifest.json">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
   body { font-family: Arial, sans-serif; background-color: #f0f2f5; margin: 0; padding: 0; padding-bottom: 40px; color: #333; }
   header { background-color: #1d4ed8; color: white; padding: 15px; text-align: center; font-size: 1.2rem; font-weight: bold; position: relative; }
@@ -36,6 +37,11 @@
   th { background: #f1f5f9; }
   .dif-neg, .dif-pos { font-weight: bold; color: #dc2626; }
   .dif-cero { color: #16a34a; }
+  /* --- Reporte (solo admin) --- */
+  .chart-box { position: relative; height: 220px; margin-bottom: 20px; }
+  .reporte-texto { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 14px; font-size: 0.9rem; line-height: 1.5; color: #1e3a5f; white-space: pre-wrap; }
+  .reporte-fecha { text-align: center; font-size: 0.75rem; color: #94a3b8; margin-bottom: 10px; }
+  .loading-msg { text-align: center; color: #64748b; font-size: 0.9rem; padding: 20px 0; }
 </style>
 </head>
 <body>
@@ -53,8 +59,12 @@
     <label>Operario:</label>
     <select id="loginUser">
       <option value="">-- Elegir --</option>
+      <!-- ⚠️ Estos nombres tienen que coincidir EXACTO con la constante
+           USUARIOS del backend (.gs). Reemplazá "Dueña"/"Dueño" por los
+           nombres reales una vez que los cambies también en el .gs. -->
+      <option value="Willy">Willy</option>
+      <option value="Fernando">Fernando</option>
       <option value="Ana">Ana</option>
-      <option value="Belen">Belen</option>
       <option value="Tito">Tito</option>
     </select>
     <label>PIN (4 dígitos):</label>
@@ -76,6 +86,8 @@
       <button class="tab-btn" onclick="mostrarTab('conteo')">📋 Conteo</button>
       <button class="tab-btn" onclick="mostrarTab('correccion')">✏️ Corregir</button>
       <button class="tab-btn" onclick="mostrarTab('auditoria')">📊 Auditoría</button>
+      <!-- Solo se muestra si el usuario logueado es admin (dueño/a) -->
+      <button id="tabBtnReporte" class="tab-btn hidden" onclick="mostrarTab('reporte')">🤖 Reporte</button>
     </div>
 
     <!-- SALIDA A REPARTO -->
@@ -194,6 +206,22 @@
         <tbody id="tablaCamiones"></tbody>
       </table>
     </div>
+
+    <!-- REPORTE IA (solo admin: dueña/dueño) -->
+    <div id="tab-reporte" class="card hidden">
+      <h3>🤖 Reporte del Negocio</h3>
+      <button onclick="cargarReporte()" class="btn-principal" style="margin-bottom:15px;">🔄 Actualizar</button>
+      <div id="reporteLoading" class="loading-msg hidden">Cargando reporte...</div>
+      <div id="reporteContenido" class="hidden">
+        <p style="text-align:center; font-weight:bold; color:#475569; margin-bottom:5px;">Ventas por repartidor (últimos 30 días)</p>
+        <div class="chart-box"><canvas id="chartRepartidor"></canvas></div>
+        <p style="text-align:center; font-weight:bold; color:#475569; margin-bottom:5px;">Ventas por producto</p>
+        <div class="chart-box"><canvas id="chartProducto"></canvas></div>
+        <p style="text-align:center; font-weight:bold; color:#475569; margin:15px 0 5px;">Total vendido: <span id="ventaTotalTexto"></span> unidades</p>
+        <div id="reporteFecha" class="reporte-fecha"></div>
+        <div id="reporteTexto" class="reporte-texto"></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -226,6 +254,13 @@ PRODUCTOS_CAJON.forEach(p => ESTADOS_POR_PRODUCTO[p] = ESTADOS_CAJON);
 const ESTADOS = [...new Set([...ESTADOS_BIDON, ...ESTADOS_SIFON, ...ESTADOS_CAJON])];
 
 let currentUser = "";
+// El PIN se guarda solo en memoria (nunca en localStorage) porque el
+// backend lo necesita en cada pedido de Reporte para validar que quien
+// pregunta sigue siendo admin. Se borra al hacer logout.
+let currentPin = "";
+let esAdminActual = false;
+let chartRepartidorInstance = null;
+let chartProductoInstance = null;
 const QUEUE_KEY = "cola_offline_movimientos";
 
 // ==================== INIT ====================
@@ -290,42 +325,62 @@ function login() {
   if (!usuario || pin.length < 4) { alert("Elegí un operario e ingresá el PIN completo."); return; }
 
   // El login necesita conexión la primera vez del día; si no hay señal,
-  // se permite entrar igual y se valida en el primer sync.
+  // se permite entrar igual (para no frenar el trabajo en el depósito),
+  // pero SIN acceso al Reporte hasta poder confirmar el rol con el
+  // servidor — no hay forma segura de saber si es admin sin conexión.
   if (!navigator.onLine) {
     currentUser = usuario;
+    currentPin = pin;
+    esAdminActual = false;
     entrarApp();
     return;
   }
 
   postApi({ accion: "login", usuario, pin }).then(r => {
-    if (r && r.ok) { currentUser = usuario; entrarApp(); }
-    else { alert("Usuario o PIN incorrecto."); }
-  }).catch(() => { currentUser = usuario; entrarApp(); });
+    if (r && r.ok) {
+      currentUser = usuario;
+      currentPin = pin;
+      esAdminActual = !!r.esAdmin;
+      entrarApp();
+    } else {
+      alert("Usuario o PIN incorrecto.");
+    }
+  }).catch(() => {
+    currentUser = usuario;
+    currentPin = pin;
+    esAdminActual = false;
+    entrarApp();
+  });
 }
 
 function entrarApp() {
   document.getElementById("loginScreen").classList.add("hidden");
   document.getElementById("appScreen").classList.remove("hidden");
   document.getElementById("btnSalir").classList.remove("hidden");
+  document.getElementById("tabBtnReporte").classList.toggle("hidden", !esAdminActual);
   cargarStock();
 }
 
 function logout() {
   currentUser = "";
+  currentPin = "";
+  esAdminActual = false;
   document.getElementById("loginScreen").classList.remove("hidden");
   document.getElementById("appScreen").classList.add("hidden");
   document.getElementById("btnSalir").classList.add("hidden");
+  document.getElementById("tabBtnReporte").classList.add("hidden");
   document.getElementById("loginPin").value = "";
 }
 
 // ==================== TABS ====================
 function mostrarTab(nombre) {
-  ["salida", "retorno", "descarte", "interno", "conteo", "correccion", "auditoria"].forEach(t => {
+  ["salida", "retorno", "descarte", "interno", "conteo", "correccion", "auditoria", "reporte"].forEach(t => {
     document.getElementById("tab-" + t).classList.toggle("hidden", t !== nombre);
   });
   document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
   event.target.classList.add("active");
   if (nombre === "auditoria") cargarStock();
+  if (nombre === "reporte") cargarReporte();
 }
 
 // ==================== GUARDAR MOVIMIENTOS ====================
@@ -530,6 +585,78 @@ function cargarStock() {
       `<tr><td>${c.repartidor}</td><td>${c.producto}</td><td>${c.stockLlenos}</td></tr>`
     ).join("");
   }).catch(() => {});
+}
+
+// ==================== REPORTE (solo admin) ====================
+function cargarReporte() {
+  if (!esAdminActual) return; // doble resguardo, aunque el tab ya está oculto
+  const loadingEl = document.getElementById("reporteLoading");
+  const contenidoEl = document.getElementById("reporteContenido");
+
+  if (!navigator.onLine) {
+    contenidoEl.classList.add("hidden");
+    loadingEl.classList.remove("hidden");
+    loadingEl.textContent = "📴 Necesitás conexión para ver el reporte.";
+    return;
+  }
+
+  loadingEl.classList.remove("hidden");
+  loadingEl.textContent = "Cargando reporte...";
+  contenidoEl.classList.add("hidden");
+
+  postApi({ accion: "getReporte", usuario: currentUser, pin: currentPin }).then(r => {
+    if (!r || !r.ok) {
+      loadingEl.textContent = "No se pudo cargar el reporte: " + (r && r.error ? r.error : "error desconocido");
+      return;
+    }
+    loadingEl.classList.add("hidden");
+    contenidoEl.classList.remove("hidden");
+    dibujarReporte(r);
+  }).catch(() => {
+    loadingEl.textContent = "⚠️ Sin respuesta del servidor. Probá de nuevo.";
+  });
+}
+
+function dibujarReporte(r) {
+  const ventas = r.ventas;
+
+  document.getElementById("ventaTotalTexto").textContent = ventas.total;
+  document.getElementById("reporteFecha").textContent = r.fechaTextoIA
+    ? "Generado: " + new Date(r.fechaTextoIA).toLocaleString("es-AR")
+    : "";
+  document.getElementById("reporteTexto").textContent = r.textoIA || "Todavía no hay resumen generado.";
+
+  // --- Gráfico por repartidor ---
+  const repartidores = Object.keys(ventas.porRepartidor);
+  const totalesPorRepartidor = repartidores.map(rep => ventas.porRepartidor[rep]["_totalRepartidor"]);
+
+  if (chartRepartidorInstance) chartRepartidorInstance.destroy();
+  chartRepartidorInstance = new Chart(document.getElementById("chartRepartidor"), {
+    type: "bar",
+    data: {
+      labels: repartidores,
+      datasets: [{ label: "Unidades vendidas", data: totalesPorRepartidor, backgroundColor: "#2563eb" }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+  });
+
+  // --- Gráfico por producto ---
+  const productos = Object.keys(ventas.porProducto);
+  const totalesPorProducto = productos.map(p => ventas.porProducto[p]);
+
+  if (chartProductoInstance) chartProductoInstance.destroy();
+  chartProductoInstance = new Chart(document.getElementById("chartProducto"), {
+    type: "bar",
+    data: {
+      labels: productos,
+      datasets: [{ label: "Unidades vendidas", data: totalesPorProducto, backgroundColor: "#16a34a" }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      indexAxis: "y",
+      plugins: { legend: { display: false } }
+    }
+  });
 }
 </script>
 </body>
