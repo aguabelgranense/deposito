@@ -79,9 +79,8 @@
     </div>
 
     <div class="tabs">
-      <button class="tab-btn active" onclick="mostrarTab('salida')">🚚 Salida</button>
-      <button class="tab-btn" onclick="mostrarTab('retorno')">↩️ Retorno</button>
-      <button class="tab-btn" onclick="mostrarTab('descarte')">🗑️ Descarte</button>
+      <button class="tab-btn active" onclick="mostrarTab('carga')">🚚 Carga</button>
+      <button class="tab-btn" onclick="mostrarTab('descarga')">↩️ Descarga</button>
       <button class="tab-btn" onclick="mostrarTab('interno')">🔄 Interno</button>
       <button class="tab-btn" onclick="mostrarTab('conteo')">📋 Conteo</button>
       <button class="tab-btn" onclick="mostrarTab('correccion')">✏️ Corregir</button>
@@ -90,50 +89,49 @@
       <button id="tabBtnReporte" class="tab-btn hidden" onclick="mostrarTab('reporte')">🤖 Reporte</button>
     </div>
 
-    <!-- SALIDA A REPARTO -->
-    <div id="tab-salida" class="card">
-      <h3>Salida a Reparto</h3>
+    <!-- CARGA -->
+    <div id="tab-carga" class="card">
+      <h3>Carga</h3>
       <label>Repartidor:</label>
-      <select id="salidaRepartidor"></select>
+      <select id="cargaRepartidor"></select>
       <label>Producto:</label>
-      <select id="salidaProducto"></select>
+      <select id="cargaProducto"></select>
       <label>Cantidad de Llenos que salen:</label>
-      <input type="number" id="salidaCantidad" min="0" placeholder="0">
-      <button onclick="guardarSalida()" class="btn-principal btn-guardar">💾 Guardar Salida</button>
+      <input type="number" id="cargaCantidadLlenos" min="0" placeholder="0">
+      <div class="alerta-caja">
+        <span>🗑️ Descarte (opcional): si el repartidor se lleva Rotos/Pinchados ya confirmados para tirar en el mismo viaje.</span>
+        <label style="font-weight:normal;font-size:0.85rem;">Cantidad de Rotos/Pinchados que se lleva para descartar:</label>
+        <input type="number" id="cargaCantidadDescarte" min="0" placeholder="0" style="margin-bottom:0;">
+      </div>
+      <button onclick="guardarCarga()" class="btn-principal btn-guardar">💾 Guardar Carga</button>
     </div>
 
-    <!-- RETORNO DE CAMIÓN -->
-    <div id="tab-retorno" class="card hidden">
-      <h3>Retorno de Camión</h3>
+    <!-- DESCARGA -->
+    <div id="tab-descarga" class="card hidden">
+      <h3>Descarga</h3>
       <label>Repartidor:</label>
-      <select id="retornoRepartidor"></select>
+      <select id="descargaRepartidor"></select>
       <label>Producto:</label>
-      <select id="retornoProducto"></select>
+      <select id="descargaProducto"></select>
       <div class="grid-2">
-        <div><label>Vacíos que trae (van a "Para Lavar"):</label><input type="number" id="retVacios" min="0" placeholder="0"></div>
-        <div><label>Llenos sobrantes:</label><input type="number" id="retSobrantes" min="0" placeholder="0"></div>
+        <div><label>Vacíos que trae (van a "Para Lavar"):</label><input type="number" id="descVacios" min="0" placeholder="0"></div>
+        <div><label>Llenos sobrantes:</label><input type="number" id="descSobrantes" min="0" placeholder="0"></div>
       </div>
       <div class="alerta-caja">
         <span>⚠️ Incidentes (opcional):</span>
         <div class="grid-2">
-          <div><label style="font-weight:normal;font-size:0.75rem;">🟢 Verdes:</label><input type="number" id="retVerde" min="0" placeholder="0"></div>
-          <div><label style="font-weight:normal;font-size:0.75rem;">🔴 Rotos:</label><input type="number" id="retRotos" min="0" placeholder="0"></div>
+          <div><label style="font-weight:normal;font-size:0.75rem;">🟢 Verdes:</label><input type="number" id="descVerde" min="0" placeholder="0"></div>
+          <div><label style="font-weight:normal;font-size:0.75rem;">🔴 Rotos/Pinchados:</label><input type="number" id="descRotos" min="0" placeholder="0"></div>
         </div>
       </div>
-      <button onclick="guardarRetorno()" class="btn-principal btn-guardar">💾 Guardar Retorno</button>
-    </div>
-
-    <!-- DESCARTE -->
-    <div id="tab-descarte" class="card hidden">
-      <h3>Salida - Descarte</h3>
-      <div class="alerta-caja">
-        <span>⚠️ Solo para Rotos ya probados y confirmados en el depósito. Salen del sistema para siempre — no vuelven a contarse en ningún estado.</span>
+      <div id="descOtrosBox" class="alerta-caja hidden">
+        <span>🏷️ Otros: bidones de otra marca u objetos que entran y no se reutilizan. Solo interesa saber que entraron.</span>
+        <label style="font-weight:normal;font-size:0.85rem;">Cantidad:</label>
+        <input type="number" id="descOtros" min="0" placeholder="0">
+        <label style="font-weight:normal;font-size:0.85rem;">Descripción (ej: "3 bidones marca La Serenísima"):</label>
+        <input type="text" id="descOtrosDescripcion" placeholder="Describí qué son" style="margin-bottom:0;">
       </div>
-      <label>Producto:</label>
-      <select id="descProducto"></select>
-      <label>Cantidad de Rotos a descartar:</label>
-      <input type="number" id="descCantidad" min="0" placeholder="0">
-      <button onclick="guardarDescarte()" class="btn-principal btn-guardar">💾 Guardar Descarte</button>
+      <button onclick="guardarDescarga()" class="btn-principal btn-guardar">💾 Guardar Descarga</button>
     </div>
 
     <!-- MOVIMIENTO INTERNO -->
@@ -159,6 +157,8 @@
       <select id="conEstado"></select>
       <label>Cantidad contada:</label>
       <input type="number" id="conCantidad" min="0" placeholder="0">
+      <label>Descripción (opcional — útil sobre todo para "Otros"):</label>
+      <input type="text" id="conDescripcion" placeholder='Ej: "2 bidones marca Villa del Sur"'>
       <button onclick="guardarConteo()" class="btn-principal btn-guardar">💾 Guardar Conteo</button>
     </div>
 
@@ -177,7 +177,7 @@
 
       <label style="display:flex; align-items:center; gap:8px; font-weight:normal; margin-bottom:10px;">
         <input type="checkbox" id="corAfectaCamion" style="width:auto; margin:0;" onchange="document.getElementById('corCamionBox').classList.toggle('hidden', !this.checked)">
-        Este error también afecta el stock de un camión (ej: error de Salida o Retorno)
+        Este error también afecta el stock de un camión (ej: error de Carga o Descarga)
       </label>
 
       <div id="corCamionBox" class="alerta-caja hidden">
@@ -188,7 +188,7 @@
       </div>
 
       <label>Motivo (obligatorio):</label>
-      <input type="text" id="corMotivo" placeholder="Ej: cargué 9 en vez de 10 en la Salida de las 10am">
+      <input type="text" id="corMotivo" placeholder="Ej: cargué 9 en vez de 10 en la Carga de las 10am">
       <button onclick="guardarCorreccion()" class="btn-principal btn-guardar">💾 Guardar Corrección</button>
     </div>
 
@@ -236,13 +236,11 @@ const PRODUCTOS_BIDON = ["Bidón 20L", "Bidón 12L", "Bidón 20L - Anahí", "Bid
 const PRODUCTOS_SIFON = ["Sifón 1.25L", "Sifón 1.5L"];
 const PRODUCTOS_CAJON = ["Cajón"];
 const PRODUCTOS = [...PRODUCTOS_BIDON, ...PRODUCTOS_CAJON, ...PRODUCTOS_SIFON];
-// El Cajón no circula por Salida/Retorno (solo se cuenta en Conteo Físico).
+// El Cajón no circula por Carga/Descarga (solo se cuenta en Conteo Físico).
 const PRODUCTOS_CAMION = [...PRODUCTOS_BIDON, ...PRODUCTOS_SIFON];
-// Productos con estado "Rotos" que se pueden mandar a Descarte.
-const PRODUCTOS_DESCARTABLES = PRODUCTOS_CAMION;
 
-const ESTADOS_BIDON = ["Llenos", "Vacío - Para Lavar", "Vacío - Para Llenar", "Verde", "En Máquina", "Rotos"];
-const ESTADOS_SIFON = ["Llenos", "Vacíos", "Rotos"];
+const ESTADOS_BIDON = ["Llenos", "Vacío - Para Lavar", "Vacío - Para Llenar", "Verde", "En Máquina", "Rotos/Pinchados", "Otros"];
+const ESTADOS_SIFON = ["Llenos", "Vacíos", "Rotos/Pinchados"];
 const ESTADOS_CAJON = ["Esqueleto", "Completo - Lleno", "Completo - Vacío"];
 
 const ESTADOS_POR_PRODUCTO = {};
@@ -292,13 +290,13 @@ function llenarSelects() {
     const el = document.getElementById(id);
     el.innerHTML = arr.map(v => `<option value="${v}">${v}</option>`).join("");
   };
-  ["salidaRepartidor", "retornoRepartidor", "corRepartidor"].forEach(id => setOpts(id, REPARTIDORES));
-  // Salida y Retorno solo manejan lo que circula en camión (sin Cajón).
-  ["salidaProducto", "retornoProducto"].forEach(id => setOpts(id, PRODUCTOS_CAMION));
+  ["cargaRepartidor", "descargaRepartidor", "corRepartidor"].forEach(id => setOpts(id, REPARTIDORES));
+  // Carga y Descarga solo manejan lo que circula en camión (sin Cajón).
+  // El mismo selector de Carga sirve tanto para los llenos que salen como
+  // para el descarte que se lleva el repartidor en el mismo viaje.
+  ["cargaProducto", "descargaProducto"].forEach(id => setOpts(id, PRODUCTOS_CAMION));
   // Interno, Conteo y Corrección pueden tocar cualquier producto (incluido Cajón).
   ["intProducto", "conProducto", "corProducto"].forEach(id => setOpts(id, PRODUCTOS));
-  // Descarte: solo productos con estado "Rotos" (todo lo que va en camión).
-  setOpts("descProducto", PRODUCTOS_DESCARTABLES);
 
   // Los desplegables de Estado dependen del producto elegido (cada
   // categoría de producto tiene su propio set de estados). Se actualizan
@@ -312,6 +310,15 @@ function llenarSelects() {
   document.getElementById("intProducto").addEventListener("change", () => actualizarEstados("intProducto", ["intOrigen", "intDestino"]));
   document.getElementById("conProducto").addEventListener("change", () => actualizarEstados("conProducto", ["conEstado"]));
   document.getElementById("corProducto").addEventListener("change", () => actualizarEstados("corProducto", ["corEstado"]));
+
+  // "Otros" (bidones de otra marca) solo existe para Bidones, no Sifones.
+  // El bloque se muestra u oculta según el producto elegido en Descarga.
+  const actualizarBoxOtros = () => {
+    const producto = document.getElementById("descargaProducto").value;
+    document.getElementById("descOtrosBox").classList.toggle("hidden", !PRODUCTOS_BIDON.includes(producto));
+  };
+  document.getElementById("descargaProducto").addEventListener("change", actualizarBoxOtros);
+  actualizarBoxOtros();
 
   actualizarEstados("intProducto", ["intOrigen", "intDestino"]);
   actualizarEstados("conProducto", ["conEstado"]);
@@ -374,7 +381,7 @@ function logout() {
 
 // ==================== TABS ====================
 function mostrarTab(nombre) {
-  ["salida", "retorno", "descarte", "interno", "conteo", "correccion", "auditoria", "reporte"].forEach(t => {
+  ["carga", "descarga", "interno", "conteo", "correccion", "auditoria", "reporte"].forEach(t => {
     document.getElementById("tab-" + t).classList.toggle("hidden", t !== nombre);
   });
   document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
@@ -384,53 +391,51 @@ function mostrarTab(nombre) {
 }
 
 // ==================== GUARDAR MOVIMIENTOS ====================
-function guardarSalida() {
-  const cant = Number(document.getElementById("salidaCantidad").value) || 0;
-  if (cant <= 0) { alert("Ingresá una cantidad mayor a 0."); return; }
-  const mov = {
-    accion: "salidaReparto",
-    usuario: currentUser,
-    producto: document.getElementById("salidaProducto").value,
-    repartidor: document.getElementById("salidaRepartidor").value,
-    cantLlenos: cant,
-    timestamp: new Date().toISOString()
-  };
-  enviarMovimiento(mov);
-  document.getElementById("salidaCantidad").value = "";
-}
-
-function guardarRetorno() {
-  const vacios = Number(document.getElementById("retVacios").value) || 0;
-  const verde = Number(document.getElementById("retVerde").value) || 0;
-  const rotos = Number(document.getElementById("retRotos").value) || 0;
-  const sobrantes = Number(document.getElementById("retSobrantes").value) || 0;
-  if (vacios === 0 && verde === 0 && rotos === 0 && sobrantes === 0) {
-    alert("Ingresá al menos una cantidad."); return;
+function guardarCarga() {
+  const cantLlenos = Number(document.getElementById("cargaCantidadLlenos").value) || 0;
+  const cantDescarte = Number(document.getElementById("cargaCantidadDescarte").value) || 0;
+  if (cantLlenos <= 0 && cantDescarte <= 0) {
+    alert("Ingresá una cantidad de llenos y/o una cantidad para descarte (al menos una tiene que ser mayor a 0).");
+    return;
   }
   const mov = {
-    accion: "retornoCamion",
+    accion: "carga",
     usuario: currentUser,
-    producto: document.getElementById("retornoProducto").value,
-    repartidor: document.getElementById("retornoRepartidor").value,
-    vacios, verde, rotos, llenosSobrantes: sobrantes,
+    producto: document.getElementById("cargaProducto").value,
+    repartidor: document.getElementById("cargaRepartidor").value,
+    cantLlenos: cantLlenos,
+    cantDescarte: cantDescarte,
     timestamp: new Date().toISOString()
   };
   enviarMovimiento(mov);
-  ["retVacios", "retVerde", "retRotos", "retSobrantes"].forEach(id => document.getElementById(id).value = "");
+  document.getElementById("cargaCantidadLlenos").value = "";
+  document.getElementById("cargaCantidadDescarte").value = "";
 }
 
-function guardarDescarte() {
-  const cant = Number(document.getElementById("descCantidad").value) || 0;
-  if (cant <= 0) { alert("Ingresá una cantidad mayor a 0."); return; }
+function guardarDescarga() {
+  const vacios = Number(document.getElementById("descVacios").value) || 0;
+  const verde = Number(document.getElementById("descVerde").value) || 0;
+  const rotos = Number(document.getElementById("descRotos").value) || 0;
+  const sobrantes = Number(document.getElementById("descSobrantes").value) || 0;
+  const otros = Number(document.getElementById("descOtros").value) || 0;
+  const descripcionOtros = document.getElementById("descOtrosDescripcion").value.trim();
+  if (vacios === 0 && verde === 0 && rotos === 0 && sobrantes === 0 && otros === 0) {
+    alert("Ingresá al menos una cantidad."); return;
+  }
+  if (otros > 0 && descripcionOtros === "") {
+    alert('Contaste "Otros": agregá una breve descripción de qué son (ej: la marca).'); return;
+  }
   const mov = {
-    accion: "salidaDescarte",
+    accion: "descarga",
     usuario: currentUser,
-    producto: document.getElementById("descProducto").value,
-    cantidad: cant,
+    producto: document.getElementById("descargaProducto").value,
+    repartidor: document.getElementById("descargaRepartidor").value,
+    vacios, verde, rotos, llenosSobrantes: sobrantes,
+    otros, descripcionOtros,
     timestamp: new Date().toISOString()
   };
   enviarMovimiento(mov);
-  document.getElementById("descCantidad").value = "";
+  ["descVacios", "descVerde", "descRotos", "descSobrantes", "descOtros", "descOtrosDescripcion"].forEach(id => document.getElementById(id).value = "");
 }
 
 function guardarInterno() {
@@ -459,10 +464,12 @@ function guardarConteo() {
     producto: document.getElementById("conProducto").value,
     estado: document.getElementById("conEstado").value,
     cantidadContada: Number(cant),
+    descripcion: document.getElementById("conDescripcion").value.trim(),
     timestamp: new Date().toISOString()
   };
   enviarMovimiento(mov);
   document.getElementById("conCantidad").value = "";
+  document.getElementById("conDescripcion").value = "";
 }
 
 function guardarCorreccion() {
