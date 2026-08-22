@@ -150,16 +150,27 @@
 
     <!-- CONTEO -->
     <div id="tab-conteo" class="card hidden">
-      <h3>Conteo Físico ("Hay")</h3>
+      <h3>Conteo Físico ("A Ojo")</h3>
+      <div class="alerta-caja">
+        <span>📋 Contá TODOS los estados del producto elegido y cargalos todos juntos acá abajo — así el sistema puede calcular el balance total correctamente.</span>
+      </div>
+      <label>Momento del conteo:</label>
+      <select id="conTipo">
+        <option value="apertura">🌅 Apertura (inicio de turno)</option>
+        <option value="cierre">🌇 Cierre (fin de turno)</option>
+      </select>
       <label>Producto:</label>
       <select id="conProducto"></select>
-      <label>Estado:</label>
-      <select id="conEstado"></select>
-      <label>Cantidad contada:</label>
-      <input type="number" id="conCantidad" min="0" placeholder="0">
+
+      <div id="conEstadosContainer"><!-- inputs por estado, generados por JS --></div>
+
+      <div class="alerta-caja" style="background-color:#eff6ff; border-color:#93c5fd;">
+        <span id="conTotalTexto" style="color:#1d4ed8;">Total contado: 0</span>
+      </div>
+
       <label>Descripción (opcional — útil sobre todo para "Otros"):</label>
       <input type="text" id="conDescripcion" placeholder='Ej: "2 bidones marca Villa del Sur"'>
-      <button onclick="guardarConteo()" class="btn-principal btn-guardar">💾 Guardar Conteo</button>
+      <button onclick="guardarConteo()" class="btn-principal btn-guardar">💾 Guardar Conteo del Producto</button>
     </div>
 
     <!-- CORRECCIÓN -->
@@ -194,10 +205,19 @@
 
     <!-- AUDITORÍA -->
     <div id="tab-auditoria" class="card hidden">
-      <h3>Auditoría de Stock</h3>
+      <h3>Balance Total por Producto</h3>
       <button onclick="cargarStock()" class="btn-principal" style="margin-bottom:15px;">🔄 Actualizar</button>
       <table>
-        <thead><tr><th>Producto</th><th>Estado</th><th>Debería</th><th>Hay</th><th>Dif.</th></tr></thead>
+        <thead><tr><th>Producto</th><th>Debería (Total)</th><th>Hay (Total)</th><th>Dif.</th></tr></thead>
+        <tbody id="tablaResumen"></tbody>
+      </table>
+
+      <h3 style="margin-top:20px;">Detalle por Estado (informativo)</h3>
+      <div class="alerta-caja">
+        <span>ℹ️ Esta tabla es solo para ver dónde están parados los envases. La Diferencia real es la del Balance Total de arriba — comparar fila por fila acá no sirve porque los envases cambian de estado sin que el sistema lo registre.</span>
+      </div>
+      <table>
+        <thead><tr><th>Producto</th><th>Estado</th><th>Debería</th><th>Hay</th></tr></thead>
         <tbody id="tablaStock"></tbody>
       </table>
       <h3 style="margin-top:20px;">Stock en Camiones</h3>
@@ -308,8 +328,8 @@ function llenarSelects() {
   };
 
   document.getElementById("intProducto").addEventListener("change", () => actualizarEstados("intProducto", ["intOrigen", "intDestino"]));
-  document.getElementById("conProducto").addEventListener("change", () => actualizarEstados("conProducto", ["conEstado"]));
   document.getElementById("corProducto").addEventListener("change", () => actualizarEstados("corProducto", ["corEstado"]));
+  document.getElementById("conProducto").addEventListener("change", generarInputsConteo);
 
   // "Otros" (bidones de otra marca) solo existe para Bidones, no Sifones.
   // El bloque se muestra u oculta según el producto elegido en Descarga.
@@ -321,8 +341,31 @@ function llenarSelects() {
   actualizarBoxOtros();
 
   actualizarEstados("intProducto", ["intOrigen", "intDestino"]);
-  actualizarEstados("conProducto", ["conEstado"]);
   actualizarEstados("corProducto", ["corEstado"]);
+  generarInputsConteo();
+}
+
+// Genera, para el producto elegido en Conteo, un input numérico por CADA
+// estado (Llenos, Vacío - Para Lavar, etc). Así el operario carga TODOS
+// los estados juntos en una sola pantalla, tal como los cuenta en la
+// realidad, y el sistema puede calcular el balance TOTAL correctamente.
+function generarInputsConteo() {
+  const producto = document.getElementById("conProducto").value;
+  const estados = ESTADOS_POR_PRODUCTO[producto] || [];
+  const cont = document.getElementById("conEstadosContainer");
+  cont.innerHTML = estados.map(estado => {
+    const inputId = "conEstado_" + estado.replace(/[^a-zA-Z0-9]/g, "_");
+    return `<label>${estado}:</label>
+      <input type="number" min="0" placeholder="0" class="conEstadoInput" data-estado="${estado}" id="${inputId}" oninput="actualizarTotalConteo()">`;
+  }).join("");
+  actualizarTotalConteo();
+}
+
+function actualizarTotalConteo() {
+  const inputs = document.querySelectorAll("#conEstadosContainer .conEstadoInput");
+  let total = 0;
+  inputs.forEach(inp => { total += Number(inp.value) || 0; });
+  document.getElementById("conTotalTexto").textContent = "Total contado: " + total;
 }
 
 // ==================== LOGIN ====================
@@ -456,20 +499,34 @@ function guardarInterno() {
 }
 
 function guardarConteo() {
-  const cant = document.getElementById("conCantidad").value;
-  if (cant === "") { alert("Ingresá la cantidad contada."); return; }
+  const producto = document.getElementById("conProducto").value;
+  const tipo = document.getElementById("conTipo").value;
+  const inputs = document.querySelectorAll("#conEstadosContainer .conEstadoInput");
+
+  const conteos = {};
+  let algunoVacio = false;
+  inputs.forEach(inp => {
+    if (inp.value === "") algunoVacio = true;
+    conteos[inp.dataset.estado] = Number(inp.value) || 0;
+  });
+
+  if (algunoVacio) {
+    if (!confirm("Hay estados sin completar (se van a contar como 0). ¿Seguro que ya contaste todo? Si falta contar algún estado, la Diferencia va a salir mal.")) return;
+  }
+
   const mov = {
-    accion: "conteo",
+    accion: "conteoProducto",
     usuario: currentUser,
-    producto: document.getElementById("conProducto").value,
-    estado: document.getElementById("conEstado").value,
-    cantidadContada: Number(cant),
+    producto: producto,
+    tipo: tipo,
+    conteos: conteos,
     descripcion: document.getElementById("conDescripcion").value.trim(),
     timestamp: new Date().toISOString()
   };
   enviarMovimiento(mov);
-  document.getElementById("conCantidad").value = "";
+  inputs.forEach(inp => inp.value = "");
   document.getElementById("conDescripcion").value = "";
+  actualizarTotalConteo();
 }
 
 function guardarCorreccion() {
@@ -580,12 +637,20 @@ function cargarStock() {
   if (!navigator.onLine) return;
   getApi("getStock").then(r => {
     if (!r || !r.ok) return;
-    const tStock = document.getElementById("tablaStock");
-    tStock.innerHTML = r.stock.map(s => {
+
+    // Balance TOTAL por producto (el número oficial: Hay Total - Debería Total)
+    const tResumen = document.getElementById("tablaResumen");
+    tResumen.innerHTML = (r.resumen || []).map(s => {
       const dif = Number(s.diferencia) || 0;
       const clase = dif === 0 ? "dif-cero" : (dif < 0 ? "dif-neg" : "dif-pos");
-      return `<tr><td>${s.producto}</td><td>${s.estado}</td><td>${s.deberia}</td><td>${s.hay}</td><td class="${clase}">${dif > 0 ? "+" : ""}${dif}</td></tr>`;
+      return `<tr><td>${s.producto}</td><td>${s.deberia}</td><td>${s.hay}</td><td class="${clase}">${dif > 0 ? "+" : ""}${dif}</td></tr>`;
     }).join("");
+
+    // Detalle por estado, sin diferencia (es solo informativo, ver nota en el HTML)
+    const tStock = document.getElementById("tablaStock");
+    tStock.innerHTML = r.stock.map(s =>
+      `<tr><td>${s.producto}</td><td>${s.estado}</td><td>${s.deberia}</td><td>${s.hay}</td></tr>`
+    ).join("");
 
     const tCam = document.getElementById("tablaCamiones");
     tCam.innerHTML = r.camiones.map(c =>
